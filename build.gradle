@@ -1,0 +1,58 @@
+plugins {
+    id 'java'
+    id 'io.quarkus'
+    id 'com.palantir.docker' version "0.24.0"
+    id "com.palantir.docker-compose" version "0.24.0"
+    id "com.palantir.docker-run" version "0.24.0"
+}
+
+repositories {
+     mavenLocal()
+     mavenCentral()
+}
+
+dependencies {
+    implementation 'io.quarkus:quarkus-spring-web'
+    implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+    implementation 'io.quarkus:quarkus-resteasy'
+
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.rest-assured:rest-assured'
+}
+
+group 'pt.com.hugodias'
+version '1.0-SNAPSHOT'
+
+compileJava {
+    options.compilerArgs << '-parameters'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+docker {
+    name "${project.name}"
+    tag 'distroless-latest', "distroless-${project.version}"
+}
+
+dockerRun {
+    name "${project.name}"
+    image "${project.name}"
+    ports '8100:8080'
+    daemonize true
+    clean true
+}
+
+task copyGradleConfigurationToDocker(type: Copy) {
+    from "build.gradle", "settings.gradle", "gradle.properties"
+    into "build/docker"
+}
+task copySourceToDockerBuild(type: Copy) {
+    from "src"
+    into "build/docker/src"
+}
+copyGradleConfigurationToDocker.mustRunAfter dockerClean
+copySourceToDockerBuild.dependsOn copyGradleConfigurationToDocker
+dockerPrepare.dependsOn copySourceToDockerBuild
